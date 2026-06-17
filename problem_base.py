@@ -58,7 +58,7 @@ class SurrogateProblem(Problem):
         else:
             raise ValueError(f"Unknown sampling method: {method}")
 
-        y_samples = np.array([self.evaluate_internal(x) for x in samples])
+        y_samples = np.array([self.apply_modification(x, self.problem(x) - self.problem.optimum.y) for x in samples])
         return samples, y_samples
     
     def create_surrogate(self, kernel_type: str = "matern52", n_samples: int = 100,
@@ -103,13 +103,22 @@ class SurrogateProblem(Problem):
         self._y_modified_internal =  self.apply_modification(x, y_internal)
         return self.evaluate_surrogate(x)
 
-    def get_problem(self):
+    def get_problem(self, version = "surrogate"):
         if self.evaluate_surrogate is None:
             raise ValueError("Surrogate model has not been created. Call create_surrogate() first.")
-        return ioh.wrap_problem(self.evaluate_internal, 
+        if version == "surrogate":
+            return ioh.wrap_problem(self.evaluate_internal, 
                                 f"Surrogate_F{self.problem_id}_instance{self.instance_id}_dim{self.dimension}_{self.mode}_amp{self.amplitude}_freq{self.frequency}",
                                 ioh.ProblemClass.REAL, self.dimension, 1, lb=-5, ub=5)
-
+        elif version == "modified":
+            return ioh.wrap_problem(self.evaluate_internal, 
+                                f"Modified_F{self.problem_id}_instance{self.instance_id}_dim{self.dimension}_{self.mode}_amp{self.amplitude}_freq{self.frequency}",
+                                ioh.ProblemClass.REAL, self.dimension, 1, lb=-5, ub=5)
+        elif version == "base": 
+            return ioh.get_problem(self.problem_id, self.instance_id, self.dimension)
+        else:
+            raise ValueError("Unknown option for 'version'. Supported: 'surrogate', 'modified', 'base'.")
+            
     @property
     def y_modified_internal(self):
         return self._y_modified_internal
